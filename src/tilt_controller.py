@@ -18,48 +18,58 @@ class tilt_controller:
 
     def __init__(self, ustep, log=False):
         # create TMC_2209 drivers with the correct pins
-        # self.x_step = TMC_2209(pins._x_step, pins._x_dir, pins._x_en, serialport=1)
+        print('init')
+        self.x_step = TMC_2209(pins._x_step, pins._x_dir, pins._x_en, serialport=1)
+        self.set_parameters(self.x_step, ustep)
+
         self.y_step = TMC_2209(pins._y_step, pins._y_dir, pins._y_en, serialport=2)
+        self.set_parameters(self.y_step, ustep)
 
         # turn on motor driver logs
-        if log:
-            self.y_step.setLoglevel(Loglevel.info)
+        # if log:
+            # self.y_step.setLoglevel(Loglevel.info)
 
-        # set motor parameters
+        print('finish')
+
+    # set parameters for a particular motor
+    def set_parameters(self, motor, ustep):
         # relative movement
-        self.y_step.setMovementAbsRel(MovementAbsRel.relative)
+        motor.setMovementAbsRel(MovementAbsRel.relative)
 
-        self.y_step.setDirection_reg(False)
-        self.y_step.setVSense(True)
-        self.y_step.setCurrent(300)
-        self.y_step.setIScaleAnalog(True)
-        self.y_step.setInterpolation(True)
-        self.y_step.setSpreadCycle(False)
-        self.y_step.setMicrosteppingResolution(ustep)
-        self.y_step.setInternalRSense(False)
+        motor.setDirection_reg(False)
+        # motor.setVSense(True)
+        motor.setVSense(True)
+        motor.setCurrent(400)
+        motor.setIScaleAnalog(True)
+        motor.setInterpolation(True)
+        motor.setSpreadCycle(False)
+        motor.setMicrosteppingResolution(ustep)
+        motor.setInternalRSense(False)
 
     # destroy tmc2209s
     def __del__(self):
+        del self.x_step
         del self.y_step
 
-    def uart_test(self):
-        self.y_step.readIOIN()
-        self.y_step.readCHOPCONF()
-        self.y_step.readDRVSTATUS()
-        self.y_step.readGCONF()
+    def uart_test(self, motor):
+        motor.readIOIN()
+        motor.readCHOPCONF()
+        motor.readDRVSTATUS()
+        motor.readGCONF()
 
     def set_max_angles(self, x_range, y_range):
         pass
 
-    def set_max_speed(self, s):
-        self.y_step.setMaxSpeed(s)
+    def set_max_speed(self, motor, s):
+        motor.setMaxSpeed(s)
 
-    def set_max_accel(self, a):
-        self.y_step.setAcceleration(a)
+    def set_max_accel(self, motor, a):
+        motor.setAcceleration(a)
 
     # simple test routine for back and forth
     def motor_test(self, motor):
         # print('start')
+        motor.setDirection_pin(1)
         motor.setMotorEnabled(True)
         for i in range(10):
             motor.runToPositionSteps(1000, MovementAbsRel.relative)
@@ -71,24 +81,33 @@ class tilt_controller:
 
 
 # table parameters
-ustep = 1
+ustep = 2
 x_range = (-2, 2)
 y_range = (-2, 2)
 
 # create controller
 # (microstep, logLevel)
-tilt = tilt_controller(ustep, True)
-# tilt = tilt_controller(ustep)
-tilt.set_max_angles(x_range, y_range)
+c = tilt_controller(ustep, True)
+# c = tilt_controller(ustep)
+
+c.set_max_angles(x_range, y_range)
 
 # uncomment for various tests
-# tilt.uart_test()
-tilt.set_max_accel(2000)
-tilt.set_max_speed(500)
-tilt.motor_test(tilt.y_step)
+# c.uart_test(c.y_step)
+c.set_max_accel(c.y_step, 2000)
+c.set_max_accel(c.x_step, 2000)
+c.set_max_speed(c.y_step, 1000)
+c.set_max_speed(c.x_step, 1000)
+
+
+# print('y_motor_test')
+c.motor_test(c.y_step)
+
+# print('x_motor_test')
+c.motor_test(c.x_step)
 
 # deinit
-del tilt
+del c
 
 # spin
 while(1):

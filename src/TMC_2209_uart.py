@@ -28,11 +28,10 @@ class TMC_UART:
 #-----------------------------------------------------------------------
     def __init__(self, serialport, baudrate):
         # self.ser = UART(serialport, baudrate=115200, tx=16, rx=17) 
-        # if(serialport == 1):
-            # self.ser = UART(serialport, baudrate=115200, tx=pins._uart1_tx, rx=pins._uart1_rx) 
-        # elif(serialport == 2):
-            # self.ser = UART(serialport, baudrate=115200, tx=pins._uart2_tx, rx=pins._uart2_rx) 
-        self.ser = UART(serialport, baudrate=115200, tx=26, rx=25) 
+        if serialport == 1:
+            self.ser = UART(serialport, baudrate=115200, tx=pins._uart1_tx, rx=pins._uart1_rx) 
+        elif serialport == 2:
+            self.ser = UART(serialport, baudrate=115200, tx=pins._uart2_tx, rx=pins._uart2_rx) 
         self.mtr_id=0
         self.ser.init(115200 , bits=8, parity=None, stop=1)
         #self.ser.timeout = 20000/baudrate            # adjust per baud and hardware. Sequential reads without some delay fail.
