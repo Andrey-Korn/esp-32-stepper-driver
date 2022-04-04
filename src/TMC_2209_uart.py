@@ -34,7 +34,7 @@ class TMC_UART:
             self.ser = UART(serialport, baudrate=115200, tx=pins._uart2_tx, rx=pins._uart2_rx) 
         self.mtr_id=0
         self.ser.init(115200 , bits=8, parity=None, stop=1)
-        #self.ser.timeout = 20000/baudrate            # adjust per baud and hardware. Sequential reads without some delay fail.
+        # self.ser.timeout = 20000/baudrate            # adjust per baud and hardware. Sequential reads without some delay fail.
         self.communication_pause = 500/baudrate     # adjust per baud and hardware. Sequential reads without some delay fail.
 
         #self.ser.reset_output_buffer()

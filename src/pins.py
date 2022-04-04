@@ -8,19 +8,24 @@
 # UART2 used for TMC2209 y stepper
 _uart0_tx = 1
 _uart0_rx = 3
+
 _uart1_tx = 17
 # _uart1_tx = 10
-_uart1_rx = 5
+_uart1_rx = 16
 # _uart1_rx = 9
+
 _uart2_tx = 12
 # _uart2_tx = 17
 _uart2_rx = 14
 # _uart2_rx = 16
 
 # TMC2209 step/dir/enable
-_x_dir = 19
-_x_step = 18
-_x_en = 16
+_x_dir = 4
+# _x_dir = 19
+_x_step = 0
+# _x_step = 18
+# _x_en = 16
+_x_en = 5
 _x_diag = 34
 
 _y_dir = 25
