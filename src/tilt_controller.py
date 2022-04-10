@@ -1,26 +1,35 @@
-import sys, time
+import sys, time, select
 from TMC_2209_StepperDriver import *
 from mpu6050 import ANGLE_KAL, FILTER_ANGLES, MPU6050
 import pins
 from machine import Timer
+# from micropython import schedule
 
 # get new accel ofs calibration after power cycle
-# ofs = (-1428, 247, 5644, 16, 138, 125)
-ofs=(-1412, 241, 5642, 15, 137, 122)
+ofs=(-1428, 241, 5646, 14, 134, 119)
+
+# poll stdin for x/y angles
+poll = select.poll()
+poll.register(sys.stdin, select.POLLIN)
+
 #------------------------------------------------------
 # tilt_controller
 # 
 # create 2 TMC2209 and 1 mpu6050 drivers
 #------------------------------------------------------
 class tilt_controller:
+    serial_count = 0
+    sensor_count = 0
     x_step = None   # x tmc2209 stepper
-    x_range = None  # tuple of max x angles
     y_step = None   # y tmc2209 stepper
-    y_range = None  # tuple of max y angles
+    range = None  # tuple of max allowable x/y angles
     sensor = None   # mpu6050
-    target = None   # target table angle (x, y)
-    current = None  # current table angle (x, y)
-    converge = 0.2  # acceptable angle difference for convergence
+    target = [0, 0]   # target table angle (x, y)
+    curr_sample = None  # current table angle (x, y)
+    prev_sample = None # prev table angle (x, y)
+    position = None # current belief of position (x, y)
+    converge = 0.5  # acceptable angle difference for convergence
+    far_away = (1.5, 2)
 
     def __init__(self, ustep, log=False):
         # create TMC_2209 drivers with the correct pins
@@ -45,7 +54,9 @@ class tilt_controller:
             exit()
         
         # take initial board measurement
-        self.current = self.sensor.angles
+        self.curr_sample = self.sensor.angles
+        self.prev_sample = self.curr_sample
+        self.position = self.curr_sample
 
 
     # set parameters for a particular motor
@@ -75,9 +86,8 @@ class tilt_controller:
         motor.readGCONF()
 
     # set max table tilt angles
-    def set_max_angles(self, x_range, y_range):
-        self.x_range = x_range
-        self.y_range = y_range
+    def set_max_angles(self, range_tuple):
+        self.range = range_tuple
 
     def set_max_speed(self, motor, s):
         motor.setMaxSpeed(s)
@@ -101,24 +111,52 @@ class tilt_controller:
         print('finish')
     
     def set_tilt(self, angles):
-        self.target = angles
+        self.target[0] = angles[0] * self.range[0]
+        self.target[1] = angles[1] * self.range[1]
 
 
     # step motors towards target angles
     def motor_callback(self, t):
-        # check what direction to step 
+        # if self.sensor_count < 5:
+            # self.sensor_count += 1
+        # else:
+            # self.sensor_callback()
+            # self.sensor_count = 0
+        self.sensor_callback()
+
+        # if self.serial_count < 50:
+        #     self.serial_count += 1
+        # else:
+        #     self.serial_read()
+        #     self.serial_count = 0
+
         curtime = time.ticks_us()
 
+        # print(f'target: {self.target}')
         # move x motor
         if (curtime - self.x_step._lastStepTime >= self.x_step._stepInterval):
             if not self.at_target(0, self.x_step):
                 self.x_step.makeAStep()
+                # time.sleep(0.00005)
+                # self.x_step.makeAStep()
+                # if abs(self.target[0] - self.position[0]) > self.far_away[0]:
+                    # time.sleep(0.0001)
+                    # self.x_step.makeAStep()
+                    # time.sleep(0.00005)
+                    # self.x_step.makeAStep()
                 self.x_step._lastStepTime = curtime # does not account for makeAStep() costs
 
         # move y motor
         if (curtime - self.y_step._lastStepTime >= self.y_step._stepInterval):
             if not self.at_target(1, self.y_step):
                 self.y_step.makeAStep()
+                # time.sleep(0.00005)
+                # self.y_step.makeAStep()
+                # if abs(self.target[1] - self.position[1]) > self.far_away[1]:
+                    # time.sleep(0.0001)
+                    # self.y_step.makeAStep()
+                    # time.sleep(0.00005)
+                    # self.y_step.makeAStep()
                 self.y_step._lastStepTime = curtime # does not account for makeAStep() costs
 
 
@@ -127,7 +165,7 @@ class tilt_controller:
     def check_dir(self, axis, motor):
 
         # set x or y to rotate right
-        if self.current[axis] < self.target[axis]:
+        if self.position[axis] < self.target[axis]:
             motor.setDirection_pin(0)
 
         # set x or y to rotate left
@@ -136,7 +174,7 @@ class tilt_controller:
 
 
     def at_target(self, axis, motor):
-        if abs(self.target[axis] - self.current[axis]) < self.converge:
+        if abs(self.target[axis] - self.position[axis]) < self.converge:
             return True
         else:
             self.check_dir(axis, motor)
@@ -144,20 +182,56 @@ class tilt_controller:
         
 
 
-    def sensor_callback(self, t):
+    def sensor_callback(self):
+    # def sensor_callback(self, t):
+        self.prev_sample = self.curr_sample
+        # sample = self.sensor.angles
+        # self.prev_sample = (round(sample[1], 2), round(sample[0], 2))
         sample = self.sensor.angles
-        # print(f"roll: {round(sample[0], 2)} | pitch: {round(sample[0], 2)}")
+        # swap pitch and roll values in sample tuple
+        self.curr_sample = (round(sample[1], 2), round(sample[0], 2))
 
         # try keeping running avg
-        # swap pitch and roll values in sample tuple
-        self.current = (round(sample[1], 2), round(sample[0], 2))
+        # self.position = self.sensor_avg()
+        self.position = self.curr_sample
+
+    def sensor_avg(self):
+        return (self.curr_sample[0] + self.prev_sample[0] / 2, 
+                self.curr_sample[1] + self.prev_sample[1] / 2)
+
+    # poll stdin for 1 ms
+    def serial_read(self):
+    # def serial_read(self, t):
+        stream = poll.poll(1)
+        # do nothing if no input seen
+        if stream == []:
+           pass
+        else:        
+            data = sys.stdin.readline()
+            data = data.strip('\n')
+            data = data.split(',')
+            data[0] = round(float(data[0]), 2)
+            data[1] = round(float(data[1]), 2)
+            print(f'{data[0]} {data[1]}')
+            self.set_tilt((data[0], data[1]))
+
+        # data = sys.stdin.readline()
+        # data = data.strip('\n')
+        # data = data.split(',')
+        # data[0] = round(float(data[0]), 2)
+        # data[1] = round(float(data[1]), 2)
+        # # print(f'{data[0]} {data[1]}')
+        # self.set_tilt((data[0], data[1]))
+
+
         
 
 
 # table parameters
 ustep = 2
-x_range = (-2, 2)
-y_range = (-2, 2)
+# ustep = 16
+# max range (x, y)
+range = (2, 2)
 initial_target = (0, 0)
 
 # create controller
@@ -165,14 +239,14 @@ initial_target = (0, 0)
 # c = tilt_controller(ustep, True)
 c = tilt_controller(ustep)
 
-c.set_max_angles(x_range, y_range)
+c.set_max_angles(range)
 c.set_tilt(initial_target)
 
 
-c.set_max_accel(c.y_step, 1500)
-c.set_max_accel(c.x_step, 1500)
-c.set_max_speed(c.y_step, 100)
-c.set_max_speed(c.x_step, 100)
+c.set_max_accel(c.y_step, 1000)
+c.set_max_accel(c.x_step, 1000)
+c.set_max_speed(c.y_step, 2000)
+c.set_max_speed(c.x_step, 2000)
 
 
 # uncomment for various tests
@@ -199,7 +273,9 @@ t3 = Timer(3)
 t0.init(period=1, callback=c.motor_callback)
 
 # accelerometer callback
-t1.init(period=1, callback=c.sensor_callback)
+# t1.init(period=2, callback=c.sensor_callback)
+
+# t2.init(period=50, callback=c.serial_read)
 
 # deinit
 # del c
