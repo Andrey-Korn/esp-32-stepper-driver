@@ -11,13 +11,11 @@ stepper_driver::stepper_driver() {
     }
 
     // configure tmc
-    set_ustep(4);
+    // set_ustep(4);
 
     // test tmc
     // test_connection();
     // print_parameters();
-
-    
 }
 
 // test comms and return bool
@@ -158,13 +156,20 @@ void stepper_driver::set_ustep(int u_step) {
     tmc.setMicrostepsPerStep(u_step);
 }
 
-void stepper_driver::set_current(uint8_t current_percent) {
-    tmc.setRunCurrent(current_percent);
+void stepper_driver::set_run_current(uint8_t percent) {
+    tmc.setRunCurrent(percent);
 }
 
-// void stepper_driver::enable() { tmc.enable(); }
-void stepper_driver::enable() { digitalWrite(5, LOW); }
+void stepper_driver::set_hold_current(uint8_t percent) {
+    tmc.setHoldCurrent(percent);
+}
 
-// void stepper_driver::disable() { tmc.disable(); }
-void stepper_driver::disable() { digitalWrite(5, HIGH); }
+void stepper_driver::enable() {
+    tmc.enable(); 
+    digitalWrite(MOTOR_EN_PIN, LOW);
+}
 
+void stepper_driver::disable() {
+    tmc.disable();
+    digitalWrite(MOTOR_EN_PIN, HIGH);
+}
