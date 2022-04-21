@@ -38,6 +38,8 @@ void mpu_driver::Initialize()
     // join I2C bus (I2Cdev library doesn't do this automatically)
     #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
         Wire.begin(I2C_SDA, I2C_SCL);
+        Wire.setClock(400000);
+        // Wire.setWireTimeout(3000, true);
     #elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
         Fastwire::setup(400, true);
     #endif
