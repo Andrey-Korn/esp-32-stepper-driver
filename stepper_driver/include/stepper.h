@@ -6,16 +6,9 @@
 class stepper_driver {
     private:
 
-        const int DELAY = 1000;
-        const int MOTOR_STEP_PIN = 0;
-        const int MOTOR_DIRECTION_PIN = 4;
-        const int MOTOR_EN_PIN = 5;
-
-        const int SPEED_SPS = 300;
-        const int ACCEL_SPS = 800;
-
+        const int DELAY = 100;
+        int MOTOR_EN_PIN;
         HardwareSerial & serial_stream = Serial1;
-
 
     public:
 
@@ -33,6 +26,7 @@ class stepper_driver {
         void test_connection();
         void print_parameters();
         void set_ustep(int);
+        void connect_motor_pins(int, int, int);
         void set_run_current(uint8_t);
         void set_hold_current(uint8_t);
 

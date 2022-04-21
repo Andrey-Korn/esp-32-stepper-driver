@@ -1,22 +1,7 @@
 #include <Arduino.h>
 #include <stepper.h>
 
-stepper_driver::stepper_driver() {
-
-    // wait for tmc2209 setup
-    tmc.setup(serial_stream);
-    while(!test_setup()){
-        delay(DELAY);
-        Serial.println("waiting for tmc2209 connection!");
-    }
-
-    // configure tmc
-    // set_ustep(4);
-
-    // test tmc
-    // test_connection();
-    // print_parameters();
-}
+stepper_driver::stepper_driver() { }
 
 // test comms and return bool
 bool stepper_driver::test_setup() {
@@ -37,7 +22,6 @@ bool stepper_driver::test_setup() {
         return false;
     }
     Serial.println("");
-    // delay(DELAY);
 }
 
 // print tmc2209 info
@@ -140,7 +124,6 @@ void stepper_driver::test_connection() {
 
     Serial.println("*************************");
     Serial.println("");
-    // delay(DELAY);
 }
 void stepper_driver::print_parameters() {
     Serial.print("getMicrostepsPerStep() = ");
@@ -162,6 +145,14 @@ void stepper_driver::set_run_current(uint8_t percent) {
 
 void stepper_driver::set_hold_current(uint8_t percent) {
     tmc.setHoldCurrent(percent);
+}
+
+void stepper_driver::connect_motor_pins(int step, int dir, int en) {
+    // tell Flexy Stepper what pins to use for step and dir
+    stepper.connectToPins(step, dir);
+
+    // set pin for enable() and disable()
+    MOTOR_EN_PIN = en;
 }
 
 void stepper_driver::enable() {
