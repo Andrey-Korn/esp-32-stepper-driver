@@ -1,21 +1,7 @@
 #include <sensor.h>
 
 // constructor
-mpu_driver::mpu_driver() {
-    Initialize();
-
-    for (int i = iAx; i <= iGx; i++){
-        Target[i] = 0; // must fix for ZAccel
-        HighOffset[i] = 0;
-        LowOffset[i] = 0;
-    } // set targets and initial guesses
-    Target[iAz] = 16384;
-
-    PullBracketsOut();
-    PullBracketsIn();
-
-    Serial.println("-------------- done --------------");
-}
+mpu_driver::mpu_driver() { }
 
 void mpu_driver::ForceHeader() {
     LinesOut = 99;
@@ -56,7 +42,7 @@ void mpu_driver::Initialize()
         Fastwire::setup(400, true);
     #endif
 
-    Serial.begin(115200);
+    // Serial.begin(115200);
 
     // initialize device
     Serial.println("Initializing I2C devices...");

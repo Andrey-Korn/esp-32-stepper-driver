@@ -20,8 +20,21 @@
 
 class mpu_driver {
     private:
+
+    public:
+
         // create accelerometer
         MPU6050 accelgyro;
+
+        mpu_driver();
+        void ForceHeader();
+        void GetSmoothed();
+        void Initialize();
+        void SetOffsets(int *);
+        void ShowProgress();
+        void PullBracketsIn();
+        void PullBracketsOut();
+        void SetAveraging(int);
 
         const char LBRACKET = '[';
         const char RBRACKET = ']';
@@ -51,16 +64,5 @@ class mpu_driver {
 
         int baudRate;
 
-        void ForceHeader();
-        void GetSmoothed();
-        void Initialize();
-        void SetOffsets(int *);
-        void ShowProgress();
-        void PullBracketsIn();
-        void PullBracketsOut();
-        void SetAveraging(int);
-
-    public:
-        mpu_driver();
 
 }; //mpu_driver

@@ -30,7 +30,11 @@ HardwareSerial & y_motor_serial = Serial2;
 // create motors and sensors
 stepper_driver x_stepper;
 stepper_driver y_stepper;
-// mpu_driver mpu;
+mpu_driver mpu;
+
+// accelerometer vars
+int16_t ax, ay, az;
+int16_t gx, gy, gz;
 
 
 void setup() {
@@ -84,8 +88,6 @@ void setup() {
   y_stepper.stepper.setAccelerationInStepsPerSecondPerSecond(accel);
   y_stepper.stepper.setDecelerationInStepsPerSecondPerSecond(accel);
 
-  x_stepper.enable();
-  y_stepper.enable();
   
 
   // check motor setups
@@ -97,10 +99,26 @@ void setup() {
   // y_stepper.test_connection();
   // y_stepper.print_parameters();
 
+  mpu.Initialize();
+
+  // for (int i = mpu.iAx; i <= mpu.iGx; i++){
+  //     mpu.Target[i] = 0; // must fix for ZAccel
+  //     mpu.HighOffset[i] = 0;
+  //     mpu.LowOffset[i] = 0;
+  // } // set targets and initial guesses
+  // mpu.Target[mpu.iAz] = 16384;
+
+  // mpu.PullBracketsOut();
+  // mpu.PullBracketsIn();
+
+  Serial.println("-------------- done --------------");
+
   // start flexy stepper services on core 0
   // arduino stack runs on core 1
   x_stepper.stepper.startAsService(0);
   y_stepper.stepper.startAsService(0);
+  x_stepper.enable();
+  y_stepper.enable();
 }
 
 
@@ -122,4 +140,18 @@ void loop() {
     y_stepper.stepper.setTargetPositionRelativeInRevolutions(1);
     Serial.printf("Moving y stepper by %ld steps\n", u_step * steps_per_revolution);
   }
+
+  // mpu.accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+  
+  // Serial.print(ax);
+  // Serial.print("\t");
+  // Serial.print(ay);
+  // Serial.print("\t");
+  // Serial.print(az);
+  // Serial.print("\t");
+  // Serial.print(gx);
+  // Serial.print("\t");
+  // Serial.print(gy);
+  // Serial.print("\t");
+  // Serial.println(gz);
 }
