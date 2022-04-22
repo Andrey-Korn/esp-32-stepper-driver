@@ -2,8 +2,6 @@
 #include <sensor.h>
 #include <stepper.h>
 
-// #include <MPU6050_6Axis_MotionApps_V6_12.h>
-
 // pin defines
 const int LED = 2;  // onboard ESP32 LED on GPIO2
 
@@ -25,11 +23,9 @@ const float max_speed = 800;
 const float accel = 1000;
 
 
-const long SERIAL_BAUD_RATE = 115200;
-
 // Hardware serial for use with tmc2209 boards
-HardwareSerial & x_motor_serial = Serial1;
-HardwareSerial & y_motor_serial = Serial2;
+// HardwareSerial & x_motor_serial = Serial1;
+// HardwareSerial & y_motor_serial = Serial2;
 
 // create motors and sensors
 stepper_driver x_stepper;
@@ -60,6 +56,80 @@ float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gra
 
 /* create a hardware timer */
 hw_timer_t * timer = NULL;
+
+// serial stream parameters and message buffers
+const long SERIAL_BAUD_RATE = 115200;
+const byte num_chars = 32;
+char received_chars[num_chars];
+char temp_chars[num_chars];
+
+char message_from_pc[num_chars] = {0};
+boolean new_data = false;
+int data_number = 0;
+float x_angle = 0.0;
+float y_angle = 0.0;
+
+// serial angle stream format: <x,y><x,y><x,y>...
+// <-0.01,-0.02>
+// packet char length = 11-13 (depending on negatives)
+// try multiplying by 100 and store as int? no decimal in feed
+
+// serial read functions
+void recv_with_end_marker() {
+  static boolean recv_in_progress = false;
+  static byte ndx = 0;
+  char start_marker = '<';
+  char end_marker = '>';
+  char rc;
+
+  while (Serial.available() > 0 && new_data == false) {
+    // grab character
+    rc = Serial.read();
+
+    if (recv_in_progress == true) {
+      if (rc != end_marker) {
+        if (rc != start_marker){
+          received_chars[ndx] = rc;
+          ndx++;
+          if (ndx >= num_chars) {
+            ndx = num_chars - 1;
+          }
+        }
+      }
+
+      else {
+        received_chars[ndx] = '\0'; // terminate
+        ndx = 0;
+        // keep running if more available after '>'
+        if (Serial.available() == 0) {
+          new_data = true;
+        }
+        new_data = true;
+      }
+    }
+    else if (rc == start_marker) {
+      recv_in_progress = true;
+    }
+  }
+}
+
+void parse_angles() {
+  char * strtok_idx;  // used by strtok() as index
+
+  strtok_idx = strtok(temp_chars, ","); // grab first part of message
+
+  x_angle = atof(strtok_idx);
+
+  strtok_idx = strtok(NULL, ",");
+  y_angle = atof(strtok_idx);
+}
+
+void print_angles() {
+  Serial.print("X: ");
+  Serial.print(x_angle);
+  Serial.print(" Y: ");
+  Serial.println(y_angle);
+}
 
 // DMP interrupt routine
 volatile bool mpu_interrupt = false;
@@ -185,8 +255,6 @@ void setup() {
 void loop() {
   // toggle onboard LED
   digitalWrite(LED, !digitalRead(LED));
-
-  /* Get new sensor events with the readings */
   
   // step motors example
   if (x_stepper.stepper.getDistanceToTargetSigned() == 0) {
@@ -197,6 +265,8 @@ void loop() {
     y_stepper.stepper.setTargetPositionRelativeInRevolutions(1);
     Serial.printf("Moving y stepper by %ld steps\n", u_step * steps_per_revolution);
   }
+
+  /* Get new sensor events with the readings */
 
   // if mpu DMP packet ready
   // if (mpu.accelgyro.dmpGetCurrentFIFOPacket(fifoBuffer)) {
@@ -233,4 +303,14 @@ void loop() {
   // Serial.print("\t");
   // Serial.println(gz);
 
+  // serial angle read
+  recv_with_end_marker();
+  if (new_data == true) {
+    // make copy because strtok in parse_angles() replaces commas
+    strcpy(temp_chars, received_chars);
+
+    parse_angles();
+    print_angles();
+    new_data = false;
+  }
 }
