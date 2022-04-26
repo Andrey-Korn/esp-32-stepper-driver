@@ -31,10 +31,10 @@ class ps4_controller(object):
                         if event.axis == 3:
                             self.axis_data[0] = round(event.value, 2)
                         if event.axis == 4:
-                            self.axis_data[1] = round(event.value, 2)
+                            self.axis_data[1] = -round(event.value, 2)
 
                 time.sleep(sample_delay)
-                print(f'{self.axis_data[0]},{self.axis_data[1]}')
+                print(f'<{self.axis_data[0]},{self.axis_data[1]}>')
 
             except KeyboardInterrupt:
                 quit()
