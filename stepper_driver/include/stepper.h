@@ -29,11 +29,15 @@ class stepper_driver {
         void connect_motor_pins(int, int, int);
         void set_run_current(uint8_t);
         void set_hold_current(uint8_t);
+        void set_motor_parameters(int, int, int, int, uint8_t);
 
         // tmc2209 on/off
         void enable();
         void disable();
 
         // flexy stepper
+        void set_target(float, float);
+        void set_speed(int);
+        void set_accel(int);
 
 }; // stepper_driver

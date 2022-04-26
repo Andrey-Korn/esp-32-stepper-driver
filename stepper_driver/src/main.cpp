@@ -20,12 +20,11 @@ const uint8_t RUN_CURRENT_PERCENT = 100;
 const int u_step = 8;
 const long steps_per_revolution = 200;
 const float max_speed = 800;
-const float accel = 1000;
+const float accel = 2000;
 
-
-// Hardware serial for use with tmc2209 boards
-// HardwareSerial & x_motor_serial = Serial1;
-// HardwareSerial & y_motor_serial = Serial2;
+// max table tilt of 2 degrees in any axis
+const float x_max_angle = float(12) / 180;
+const float y_max_angle = float(12) / 180;
 
 // create motors and sensors
 stepper_driver x_stepper;
@@ -66,13 +65,14 @@ char temp_chars[num_chars];
 char message_from_pc[num_chars] = {0};
 boolean new_data = false;
 int data_number = 0;
-float x_angle = 0.0;
-float y_angle = 0.0;
+float x_angle_curr = 0.0;
+float x_angle_prev = 0.0;
+float y_angle_curr = 0.0;
+float y_angle_prev = 0.0;
 
 // serial angle stream format: <x,y><x,y><x,y>...
 // <-0.01,-0.02>
-// packet char length = 11-13 (depending on negatives)
-// try multiplying by 100 and store as int? no decimal in feed
+// packet char length = 9-13 (depending on negatives and decimal resolution)
 
 // serial read functions
 void recv_with_end_marker() {
@@ -118,17 +118,19 @@ void parse_angles() {
 
   strtok_idx = strtok(temp_chars, ","); // grab first part of message
 
-  x_angle = atof(strtok_idx);
+  x_angle_curr = atof(strtok_idx);
 
   strtok_idx = strtok(NULL, ",");
-  y_angle = atof(strtok_idx);
+  y_angle_curr = atof(strtok_idx);
 }
 
 void print_angles() {
   Serial.print("X: ");
-  Serial.print(x_angle);
+  Serial.print(x_angle_curr);
+  // Serial.print(x_angle * x_max_angle);
   Serial.print(" Y: ");
-  Serial.println(y_angle);
+  Serial.println(y_angle_curr);
+  // Serial.println(y_angle * y_max_angle);
 }
 
 // DMP interrupt routine
@@ -157,12 +159,14 @@ void setup() {
   Serial.begin(SERIAL_BAUD_RATE);
 
   x_stepper.tmc.setup(Serial1, 115200, TMC2209::SERIAL_ADDRESS_0);
+  // x_stepper.tmc.setup(Serial1, 115200);
   while(!x_stepper.test_setup()){
       delay(500);
       Serial.println("waiting for x tmc2209 connection!");
   }
 
   y_stepper.tmc.setup(Serial2, 115200, TMC2209::SERIAL_ADDRESS_0);
+  // y_stepper.tmc.setup(Serial2, 115200);
   while(!y_stepper.test_setup()){
       delay(500);
       Serial.println("waiting for y tmc2209 connection!");
@@ -183,45 +187,44 @@ void setup() {
   pinMode(y_step, OUTPUT);
   pinMode(y_dir, OUTPUT);
 
+
   // connect to motor pins
   x_stepper.connect_motor_pins(x_step, x_dir, x_en);
   y_stepper.connect_motor_pins(y_step, y_dir, y_en);
 
-
   // set motor parameters
-  x_stepper.set_ustep(u_step);
-  x_stepper.stepper.setStepsPerRevolution(steps_per_revolution * u_step);
-  x_stepper.set_run_current(RUN_CURRENT_PERCENT);
-  x_stepper.set_hold_current(RUN_CURRENT_PERCENT);
-  x_stepper.stepper.setSpeedInStepsPerSecond(max_speed);
-  x_stepper.stepper.setAccelerationInStepsPerSecondPerSecond(accel);
-  x_stepper.stepper.setDecelerationInStepsPerSecondPerSecond(accel);
+  x_stepper.set_motor_parameters(u_step, steps_per_revolution, accel, max_speed, RUN_CURRENT_PERCENT);
+  delay(0.5);
+  y_stepper.set_motor_parameters(u_step, steps_per_revolution, accel, max_speed, RUN_CURRENT_PERCENT);
 
-  y_stepper.set_ustep(u_step);
-  y_stepper.stepper.setStepsPerRevolution(steps_per_revolution * u_step);
-  y_stepper.set_run_current(RUN_CURRENT_PERCENT);
-  y_stepper.set_hold_current(RUN_CURRENT_PERCENT);
-  y_stepper.stepper.setSpeedInStepsPerSecond(max_speed);
-  y_stepper.stepper.setAccelerationInStepsPerSecondPerSecond(accel);
-  y_stepper.stepper.setDecelerationInStepsPerSecondPerSecond(accel);
+  // delay(0.5);
 
-  
+  // y_stepper.tmc.setMicrostepsPerStep(u_step);
+  // y_stepper.stepper.setStepsPerRevolution(steps_per_revolution * u_step);
+  // y_stepper.set_hold_current(RUN_CURRENT_PERCENT);
+  // y_stepper.set_run_current(RUN_CURRENT_PERCENT);
+  // y_stepper.set_speed(max_speed);
+  // y_stepper.set_accel(accel);
+
 
   // check motor setups
-  // bool temp = x_stepper.test_setup();
-  // x_stepper.test_connection();
-  // x_stepper.print_parameters();
+  Serial.println("X motor setup\n---------------------");
+  bool temp = x_stepper.test_setup();
+  x_stepper.test_connection();
+  x_stepper.print_parameters();
+  
+  Serial.println("Y motor setup\n---------------------");
+  temp = y_stepper.test_setup();
+  y_stepper.test_connection();
+  y_stepper.print_parameters();
 
-  // bool temp = y_stepper.test_setup();
-  // y_stepper.test_connection();
-  // y_stepper.print_parameters();
 
   // setup mpu6050 
   mpu.Initialize();
-  timer = timerBegin(0, 80, true);
-  timerAttachInterrupt(timer, mpu_callback, true);
-  timerAlarmWrite(timer, 100000, true);
-  timerAlarmEnable(timer);
+  // timer = timerBegin(0, 80, true);
+  // timerAttachInterrupt(timer, mpu_callback, true);
+  // timerAlarmWrite(timer, 100000, true);
+  // timerAlarmEnable(timer);
   // devStatus = mpu.accelgyro.dmpInitialize();
   mpu.accelgyro.setXAccelOffset(-1422);
   mpu.accelgyro.setYAccelOffset(243);
@@ -232,12 +235,13 @@ void setup() {
   // mpu.accelgyro.setDMPEnabled(true);
 
   // attach mpu6050 DMP pin to intterupt
-  attachInterrupt(digitalPinToInterrupt(mpu_int_pin), dmp_data_ready, RISING);
-  mpuIntStatus = mpu.accelgyro.getIntStatus();
+  // attachInterrupt(digitalPinToInterrupt(mpu_int_pin), dmp_data_ready, RISING);
+  // mpuIntStatus = mpu.accelgyro.getIntStatus();
   // set DMP ready flag so main loop() can use it
-  dmpReady = true;
+  // dmpReady = true;
 
-  packetSize = mpu.accelgyro.dmpGetFIFOPacketSize();
+  // packetSize = mpu.accelgyro.dmpGetFIFOPacketSize();
+
 
   // start flexy stepper services on core 0
   // arduino stack runs on core 1
@@ -248,48 +252,68 @@ void setup() {
   x_stepper.enable();
   y_stepper.enable();
 
+  // set initial motor 0 position
+  x_stepper.stepper.setCurrentPositionInRevolutions(0);
+  y_stepper.stepper.setCurrentPositionInRevolutions(0);
+
   Serial.println("-------------- ready --------------");
+}
+
+// stream angles from Serial0
+void angle_serial_read() {
+  recv_with_end_marker();
+  if (new_data == true) {
+    // make copy because strtok in parse_angles() replaces commas
+    strcpy(temp_chars, received_chars);
+
+    parse_angles();
+    // print_angles();
+
+    new_data = false;
+  }
+}
+
+float dir = 1.00;
+
+// set new Flexy Stepper targets for motors
+void update_motors() {
+  // set target position based if new angles are available
+  // if (y_angle_curr != y_angle_prev) {
+  //   y_stepper.set_target(-y_angle_curr, y_max_angle);
+  //   // Serial.print("New y angle: ");
+  //   // Serial.println(y_angle_curr);
+  //   y_angle_prev = y_angle_curr;
+  //   return;
+  // }
+  if (x_angle_curr != x_angle_prev) {
+    x_stepper.set_target(-x_angle_curr, x_max_angle);
+    x_angle_prev = x_angle_curr;
+    return;
+  }
+
+  // spin motors example
+  // if (x_stepper.stepper.getDistanceToTargetSigned() == 0) {
+  //   x_stepper.stepper.setTargetPositionRelativeInRevolutions(1);
+  //   Serial.printf("Moving x stepper by %ld steps\n", u_step * steps_per_revolution);
+  // }
+  if (y_stepper.stepper.getDistanceToTargetSigned() == 0) {
+    y_stepper.stepper.setTargetPositionRelativeInRevolutions(1);
+    // y_stepper.stepper.setTargetPositionInRevolutions(y_max_angle * dir);
+    dir *= -1;
+    // Serial.printf("Moving y stepper by %ld steps\n", u_step * steps_per_revolution);
+    return;
+  }
 }
 
 
 void loop() {
-  // toggle onboard LED
+  // toggle onboard LED to indicate activity
   digitalWrite(LED, !digitalRead(LED));
-  
-  // step motors example
-  if (x_stepper.stepper.getDistanceToTargetSigned() == 0) {
-    x_stepper.stepper.setTargetPositionRelativeInRevolutions(1);
-    Serial.printf("Moving x stepper by %ld steps\n", u_step * steps_per_revolution);
-  }
-  if (y_stepper.stepper.getDistanceToTargetSigned() == 0) {
-    y_stepper.stepper.setTargetPositionRelativeInRevolutions(1);
-    Serial.printf("Moving y stepper by %ld steps\n", u_step * steps_per_revolution);
-  }
 
-  /* Get new sensor events with the readings */
+  angle_serial_read();
+  update_motors();
 
-  // if mpu DMP packet ready
-  // if (mpu.accelgyro.dmpGetCurrentFIFOPacket(fifoBuffer)) {
-  //   mpu.accelgyro.dmpGetQuaternion(&q, fifoBuffer);
-  // //   mpu.accelgyro.dmpGetGravity(&gravity, &q);
-  // //   mpu.accelgyro.dmpGetYawPitchRoll(ypr, &q, &gravity);
-  // //   // Serial.print("ypr\t");
-  // //   // Serial.print(ypr[0] * 180 / PI);
-  // //   // Serial.print("\t");
-  // //   // Serial.print(ypr[1] * 180 / PI);
-  // //   // Serial.print("\t");
-  // //   // Serial.println(ypr[2] * 180 / PI);
-
-  //   mpu.accelgyro.dmpGetEuler(euler, &q);
-  //   Serial.print("euler\t");
-  //   Serial.print(euler[0] * 180 / PI);
-  //   Serial.print("\t");
-  //   Serial.print(euler[1] * 180 / PI);
-  //   Serial.print("\t");
-  //   Serial.println(euler[2] * 180 / PI);
-
-  // }
-
+  // Get new sensor events with the readings 
   // mpu.accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
   // Serial.print(ax);
   // Serial.print("\t");
@@ -303,14 +327,4 @@ void loop() {
   // Serial.print("\t");
   // Serial.println(gz);
 
-  // serial angle read
-  recv_with_end_marker();
-  if (new_data == true) {
-    // make copy because strtok in parse_angles() replaces commas
-    strcpy(temp_chars, received_chars);
-
-    parse_angles();
-    print_angles();
-    new_data = false;
-  }
 }

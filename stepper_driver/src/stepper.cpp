@@ -24,6 +24,61 @@ bool stepper_driver::test_setup() {
     Serial.println("");
 }
 
+void stepper_driver::set_ustep(int u_step) {
+    tmc.setMicrostepsPerStep(u_step);
+}
+
+void stepper_driver::set_run_current(uint8_t percent) {
+    tmc.setRunCurrent(percent);
+}
+
+void stepper_driver::set_hold_current(uint8_t percent) {
+    tmc.setHoldCurrent(percent);
+}
+
+void stepper_driver::connect_motor_pins(int step, int dir, int en) {
+    // tell Flexy Stepper what pins to use for step and dir
+    stepper.connectToPins(step, dir);
+
+    // set pin for enable() and disable()
+    MOTOR_EN_PIN = en;
+}
+
+void stepper_driver::enable() {
+    tmc.enable(); 
+    digitalWrite(MOTOR_EN_PIN, LOW);
+}
+
+void stepper_driver::disable() {
+    tmc.disable();
+    digitalWrite(MOTOR_EN_PIN, HIGH);
+}
+
+// Flexy Step functions
+void stepper_driver::set_target(float angle, float max) {
+    stepper.setTargetPositionInRevolutions(angle * max);
+}
+
+void stepper_driver::set_speed(int steps_per_second) {
+    stepper.setSpeedInStepsPerSecond(steps_per_second);
+}
+
+void stepper_driver::set_accel(int accel) {
+    stepper.setAccelerationInStepsPerSecondPerSecond(accel);
+    stepper.setDecelerationInStepsPerSecondPerSecond(accel);
+}
+
+// set TMC and Flexy Stepper parameters
+void stepper_driver::set_motor_parameters(int u_step, int steps_per_rev, int accel, int speed, uint8_t RUN_CURRENT_PERCENT) {
+    set_ustep(u_step);
+    stepper.setStepsPerRevolution(steps_per_rev * u_step);
+    set_run_current(RUN_CURRENT_PERCENT);
+    set_hold_current(RUN_CURRENT_PERCENT);
+    set_speed(speed);
+    set_accel(accel);
+}
+
+
 // print tmc2209 info
 void stepper_driver::test_connection() {
     Serial.println("*************************");
@@ -133,34 +188,4 @@ void stepper_driver::print_parameters() {
     Serial.print("interstep_duration = ");
     Serial.println(interstep_duration);
     Serial.println("");
-}
-
-void stepper_driver::set_ustep(int u_step) {
-    tmc.setMicrostepsPerStep(u_step);
-}
-
-void stepper_driver::set_run_current(uint8_t percent) {
-    tmc.setRunCurrent(percent);
-}
-
-void stepper_driver::set_hold_current(uint8_t percent) {
-    tmc.setHoldCurrent(percent);
-}
-
-void stepper_driver::connect_motor_pins(int step, int dir, int en) {
-    // tell Flexy Stepper what pins to use for step and dir
-    stepper.connectToPins(step, dir);
-
-    // set pin for enable() and disable()
-    MOTOR_EN_PIN = en;
-}
-
-void stepper_driver::enable() {
-    tmc.enable(); 
-    digitalWrite(MOTOR_EN_PIN, LOW);
-}
-
-void stepper_driver::disable() {
-    tmc.disable();
-    digitalWrite(MOTOR_EN_PIN, HIGH);
 }
