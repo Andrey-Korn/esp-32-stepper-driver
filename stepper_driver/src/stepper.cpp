@@ -11,13 +11,13 @@ bool stepper_driver::test_setup() {
 
     }
     else if (tmc.isCommunicatingButNotSetup()) {
-        Serial.println("Stepper driver is communication but not setup!");
+        Serial.println("Stepper driver is communicating but not setup!");
         Serial.println("Running setup again...");
         tmc.setup(serial_stream);
         return false;
     }
     else {
-        Serial.println("Stepper driver is not communication!");
+        Serial.println("Stepper driver is not communicating!");
         Serial.println("Try turning driver power on to see what happens.");
         return false;
     }
@@ -180,6 +180,7 @@ void stepper_driver::test_connection() {
     Serial.println("*************************");
     Serial.println("");
 }
+
 void stepper_driver::print_parameters() {
     Serial.print("getMicrostepsPerStep() = ");
     Serial.println(tmc.getMicrostepsPerStep());
