@@ -4,7 +4,7 @@ os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
 import time
 
-sample_delay = 0.02
+sample_delay = 0.002
 
 class ps4_controller(object):
     controller = None

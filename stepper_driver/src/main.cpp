@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <sensor.h>
 #include <stepper.h>
+// #include <esp_timer.h>
 
 // pin defines
 const int LED = 2;  // onboard ESP32 LED on GPIO2
@@ -16,15 +17,15 @@ const int y_dir = 25;
 
 // motor parameters
 const uint8_t RUN_CURRENT_PERCENT = 100;
-const int u_step = 8;
+const int u_step = 4;
 const long steps_per_revolution = 200;
-const float max_speed = 1200;
-const float accel = 2000;
+const float max_speed = 2500;
+const float accel = 3000;
 
 // max table tilt of 2 degrees in any axis
-const float x_max_angle_degrees = 30;
+const float x_max_angle_degrees = 35;
 const float x_max_angle = x_max_angle_degrees / 360;
-const float y_max_angle_degrees = 45;
+const float y_max_angle_degrees = 50;
 const float y_max_angle = y_max_angle_degrees / 360;
 
 // create motors and sensors
@@ -33,10 +34,23 @@ stepper_driver y_stepper;
 mpu_driver mpu;
 bool status;
 
-// accelerometer vars
+// mpu read timer
+hw_timer_t * timer = NULL;
+
+// raw mpu values
 int16_t ax, ay, az;
 int16_t gx, gy, gz;
-int16_t rx, ry, rz;
+
+// filtered mpu angles
+float ax_angle, ay_angle, az_angle;
+float gx_angle, gy_angle, gz_angle;
+float roll, pitch, yaw;
+
+// mpu constants
+const float acc_range = 16384.0;
+
+// dt timing for gyro
+float elapsed_time, current_time, prev_time;
 
 // serial stream parameters and message buffers
 const long SERIAL_BAUD_RATE = 115200;
@@ -111,7 +125,11 @@ void print_angles() {
   // Serial.println(y_angle * y_max_angle);
 }
 
-
+// Get new sensor readings 
+bool mpu_ready = false;
+void mpu_callback() {
+  mpu_ready = true;
+}
 
 void setup() {
   // begin serial comms 
@@ -166,12 +184,23 @@ void setup() {
 
   // setup mpu6050 
   mpu.Initialize();
-  mpu.accelgyro.setXAccelOffset(-1422);
-  mpu.accelgyro.setYAccelOffset(243);
-  mpu.accelgyro.setZAccelOffset(5626);
-  mpu.accelgyro.setXGyroOffset(16);
-  mpu.accelgyro.setYGyroOffset(126);
-  mpu.accelgyro.setZGyroOffset(98);
+  Serial.print(mpu.accelgyro.getXAccelOffset());
+  Serial.print('\t');
+  Serial.print(mpu.accelgyro.getYAccelOffset());
+  Serial.print('\t');
+  Serial.print(mpu.accelgyro.getZAccelOffset());
+  Serial.print('\t');
+  Serial.print(mpu.accelgyro.getXGyroOffset());
+  Serial.print('\t');
+  Serial.print(mpu.accelgyro.getYGyroOffset());
+  Serial.print('\t');
+  Serial.println(mpu.accelgyro.getYGyroOffset());
+
+  // start mpu6050 timer
+  timer = timerBegin(0, 80, true);
+  timerAttachInterrupt(timer, mpu_callback, true);
+  timerAlarmWrite(timer, 100000, true);
+  timerAlarmEnable(timer);
 
 
   x_stepper.disable();
@@ -183,8 +212,8 @@ void setup() {
   y_stepper.stepper.startAsService(0);
 
   // enable motors
-  x_stepper.enable();
-  y_stepper.enable();
+  // x_stepper.enable();
+  // y_stepper.enable();
 
   // set initial motor 0 position
   x_stepper.stepper.setCurrentPositionInRevolutions(0);
@@ -215,12 +244,12 @@ void update_motors() {
   if (y_angle_curr != y_angle_prev) {
     y_stepper.set_target(-y_angle_curr, y_max_angle);
     y_angle_prev = y_angle_curr;
-    return;
+    // return;
   }
   if (x_angle_curr != x_angle_prev) {
     x_stepper.set_target(-x_angle_curr, x_max_angle);
     x_angle_prev = x_angle_curr;
-    return;
+    // return;
   }
 
   // spin motors example
@@ -236,20 +265,38 @@ void update_motors() {
   // }
 }
 
-// Get new sensor readings 
-void mpu_callback() {
-  // mpu.accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-  // Serial.print(ax);
-  // Serial.print("\t");
-  // Serial.print(ay);
-  // Serial.print("\t");
-  // Serial.print(az);
-  // Serial.print("\t");
-  // Serial.print(gx);
-  // Serial.print("\t");
-  // Serial.print(gy);
-  // Serial.print("\t");
-  // Serial.println(gz);
+void process_mpu() {
+  if(mpu_ready){
+
+    // measure time for gyro
+    prev_time = current_time;
+    current_time = micros();
+    elapsed_time = (current_time - prev_time) / 1000000;
+
+    // read mpu
+    mpu.accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+
+    // print raw values
+    Serial.print(ax/acc_range);
+    Serial.print("\t");
+    Serial.print(ay/acc_range);
+    Serial.print("\t");
+    Serial.print(az/acc_range);
+    Serial.print("\t");
+    Serial.print(gx);
+    Serial.print("\t");
+    Serial.print(gy);
+    Serial.print("\t");
+    Serial.println(gz);
+
+    // roll and pitch from accelerometer data
+    // ax_angle = ;
+    // ax_angle = ;
+
+
+
+    mpu_ready = false;
+  }
 }
 
 void loop() {
@@ -258,6 +305,6 @@ void loop() {
 
   angle_serial_read();
   update_motors();
-  // mpu_callback();
+  process_mpu();
 
 }
