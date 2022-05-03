@@ -1,4 +1,5 @@
 import os
+from numpy import angle
 import serial
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
@@ -10,12 +11,20 @@ class ps4_controller(object):
     controller = None
     button_data = None
     axis_data = None
+    angle_packet = ''
 
     def __init__(self):
         pygame.init()
         pygame.joystick.init()
         self.controller = pygame.joystick.Joystick(0)
         self.controller.init()
+
+        # start serial connection to ESP-32
+        self.esp32 = serial.Serial(port='/dev/ttyUSB0', baudrate=115200, timeout=0.1)
+    
+    def serial_write(self, str_to_write):
+        self.esp32.write(bytes(str_to_write, 'utf-8'))
+        pass
 
     def listen(self):
 
@@ -33,8 +42,12 @@ class ps4_controller(object):
                         if event.axis == 4:
                             self.axis_data[1] = -round(event.value, 2)
 
+                # save angle with this format 
+                self.angle_packet = f'<{self.axis_data[0]},{self.axis_data[1]}>'
+                print(self.angle_packet)
+                self.serial_write(self.angle_packet)
+                
                 time.sleep(sample_delay)
-                print(f'<{self.axis_data[0]},{self.axis_data[1]}>')
 
             except KeyboardInterrupt:
                 quit()
