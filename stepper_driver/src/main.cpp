@@ -16,16 +16,19 @@ const int y_dir = 25;
 
 
 // motor parameters
-const uint8_t RUN_CURRENT_PERCENT = 100;
-const int u_step = 4;
+const uint8_t RUN_CURRENT_PERCENT = 70;
+// const int u_step = 4;
+const int u_step = 2;
 const long steps_per_revolution = 200;
-const float max_speed = 2500;
-const float accel = 3000;
+// const float max_speed = 3000;
+const float max_speed = 2000;
+// const float accel = 4000;
+const float accel = 2500;
 
 // max table tilt of 2 degrees in any axis
-const float x_max_angle_degrees = 35;
+const float x_max_angle_degrees = 40;
 const float x_max_angle = x_max_angle_degrees / 360;
-const float y_max_angle_degrees = 50;
+const float y_max_angle_degrees = 55;
 const float y_max_angle = y_max_angle_degrees / 360;
 
 // create motors and sensors
@@ -39,6 +42,7 @@ hw_timer_t * timer = NULL;
 
 // raw mpu values
 int16_t ax, ay, az;
+float ax_float, ay_float, az_float;
 int16_t gx, gy, gz;
 
 // filtered mpu angles
@@ -50,7 +54,7 @@ float roll, pitch, yaw;
 const float acc_range = 16384.0;
 
 // dt timing for gyro
-float elapsed_time, current_time, prev_time;
+float dt, current_time, prev_time;
 
 // serial stream parameters and message buffers
 const long SERIAL_BAUD_RATE = 115200;
@@ -136,12 +140,14 @@ void setup() {
   Serial.begin(SERIAL_BAUD_RATE);
 
   x_stepper.tmc.setup(Serial1, 115200, TMC2209::SERIAL_ADDRESS_0);
+  // x_stepper.tmc.setup(Serial1, 115200, TMC2209::SERIAL_ADDRESS_1);
   while(!x_stepper.test_setup()){
       delay(500);
       Serial.println("waiting for x tmc2209 connection!");
   }
   // delay(500);
   y_stepper.tmc.setup(Serial1, 115200, TMC2209::SERIAL_ADDRESS_1);
+  // y_stepper.tmc.setup(Serial1, 115200, TMC2209::SERIAL_ADDRESS_0);
   while(!y_stepper.test_setup()){
       delay(500);
       Serial.println("waiting for y tmc2209 connection!");
@@ -199,7 +205,7 @@ void setup() {
   // start mpu6050 timer
   timer = timerBegin(0, 80, true);
   timerAttachInterrupt(timer, mpu_callback, true);
-  timerAlarmWrite(timer, 100000, true);
+  timerAlarmWrite(timer, 10000, true);
   timerAlarmEnable(timer);
 
 
@@ -212,8 +218,8 @@ void setup() {
   y_stepper.stepper.startAsService(0);
 
   // enable motors
-  // x_stepper.enable();
-  // y_stepper.enable();
+  x_stepper.enable();
+  y_stepper.enable();
 
   // set initial motor 0 position
   x_stepper.stepper.setCurrentPositionInRevolutions(0);
@@ -240,6 +246,12 @@ void angle_serial_read() {
 
 // set new Flexy Stepper targets for motors
 void update_motors() {
+  // rezero based on accel data
+  // x_stepper.stepper.setCurrentPositionInRevolutions(ax_angle / 360);
+  // x_stepper.stepper.setTargetPositionInRevolutions(ax_angle / 360);
+  // y_stepper.stepper.setCurrentPositionInRevolutions(-ay_angle / 360);
+  // y_stepper.stepper.setTargetPositionInRevolutions(-ay_angle / 360);
+
   // set target position based if new angles are available
   if (y_angle_curr != y_angle_prev) {
     y_stepper.set_target(-y_angle_curr, y_max_angle);
@@ -270,30 +282,60 @@ void process_mpu() {
 
     // measure time for gyro
     prev_time = current_time;
-    current_time = micros();
-    elapsed_time = (current_time - prev_time) / 1000000;
 
     // read mpu
     mpu.accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
 
+    // get dt of gyro sample
+    current_time = millis();
+    dt = (current_time - prev_time) / 1000; // convert to seconds
+
+    ax_float = float(ax) / acc_range;
+    ay_float = float(ay) / acc_range;
+    az_float = float(az) / acc_range;
+
     // print raw values
-    Serial.print(ax/acc_range);
-    Serial.print("\t");
-    Serial.print(ay/acc_range);
-    Serial.print("\t");
-    Serial.print(az/acc_range);
-    Serial.print("\t");
-    Serial.print(gx);
-    Serial.print("\t");
-    Serial.print(gy);
-    Serial.print("\t");
-    Serial.println(gz);
+    // Serial.print(ax_float);
+    // Serial.print("\t");
+    // Serial.print(ay_float);
+    // Serial.print("\t");
+    // Serial.print(az_float);
+    // Serial.print("\t");
+    // Serial.print(gx);
+    // Serial.print("\t");
+    // Serial.print(gy);
+    // Serial.print("\t");
+    // Serial.println(gz);
 
     // roll and pitch from accelerometer data
-    // ax_angle = ;
-    // ax_angle = ;
+    ax_angle = atanf(ay_float / sqrtf(powf(ax_float, 2) + powf(az_float, 2))) * 180.0 / PI;
+    ay_angle = atanf(-1 * ax_float / sqrtf(powf(ay_float, 2) + powf(az_float, 2))) * 180.0 / PI;
 
+    Serial.print(ax_angle);
+    Serial.print("\t");
+    Serial.println(ay_angle);
 
+    // set new motor zero
+    // x_stepper.stepper.setCurrentPositionInRevolutions(ax_angle / 360);
+    // x_stepper.stepper.setTargetPositionInRevolutions(ax_angle / 360);
+    // y_stepper.stepper.setCurrentPositionInRevolutions(-ay_angle / 360);
+    // y_stepper.stepper.setTargetPositionInRevolutions(-ay_angle / 360);
+
+    // convert to degrees: deg/s * s = deg
+    gx_angle = gx_angle + (gx * dt);
+    gy_angle = gy_angle + (gy * dt);
+
+    yaw = yaw + gz * dt;
+
+    // complementary filter
+    roll = (0.5 * gx_angle) + (0.5 * ax_angle);
+    pitch = (0.5 * gy_angle) + (0.5 * ay_angle);
+
+    // Serial.print(roll);
+    // Serial.print("\t");
+    // Serial.print(pitch);
+    // Serial.print("\t");
+    // Serial.println(yaw);
 
     mpu_ready = false;
   }
@@ -305,6 +347,6 @@ void loop() {
 
   angle_serial_read();
   update_motors();
-  process_mpu();
+  // process_mpu();
 
 }
