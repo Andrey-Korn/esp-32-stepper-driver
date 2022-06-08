@@ -17,18 +17,20 @@ const int y_dir = 25;
 
 // motor parameters
 const uint8_t RUN_CURRENT_PERCENT = 70;
-// const int u_step = 4;
-const int u_step = 2;
+const int u_step = 8;
+// const int u_step = 2;
 const long steps_per_revolution = 200;
-// const float max_speed = 3000;
-const float max_speed = 2000;
-// const float accel = 4000;
-const float accel = 2500;
+const float max_speed = 300 * u_step;
+// const float accel = 7500;
+const float accel = 30000;
+// const float accel = 1750;
 
 // max table tilt of 2 degrees in any axis
-const float x_max_angle_degrees = 40;
+const float x_max_angle_degrees = 17;
+// const float x_max_angle_degrees = 20;
 const float x_max_angle = x_max_angle_degrees / 360;
-const float y_max_angle_degrees = 55;
+const float y_max_angle_degrees = 18;
+// const float y_max_angle_degrees = 22;
 const float y_max_angle = y_max_angle_degrees / 360;
 
 // create motors and sensors
@@ -139,15 +141,15 @@ void setup() {
   // begin serial comms 
   Serial.begin(SERIAL_BAUD_RATE);
 
-  x_stepper.tmc.setup(Serial1, 115200, TMC2209::SERIAL_ADDRESS_0);
-  // x_stepper.tmc.setup(Serial1, 115200, TMC2209::SERIAL_ADDRESS_1);
+  // x_stepper.tmc.setup(Serial1, 115200, TMC2209::SERIAL_ADDRESS_0);
+  x_stepper.tmc.setup(Serial1, 115200, TMC2209::SERIAL_ADDRESS_1);
   while(!x_stepper.test_setup()){
       delay(500);
       Serial.println("waiting for x tmc2209 connection!");
   }
   // delay(500);
-  y_stepper.tmc.setup(Serial1, 115200, TMC2209::SERIAL_ADDRESS_1);
-  // y_stepper.tmc.setup(Serial1, 115200, TMC2209::SERIAL_ADDRESS_0);
+  // y_stepper.tmc.setup(Serial1, 115200, TMC2209::SERIAL_ADDRESS_1);
+  y_stepper.tmc.setup(Serial1, 115200, TMC2209::SERIAL_ADDRESS_0);
   while(!y_stepper.test_setup()){
       delay(500);
       Serial.println("waiting for y tmc2209 connection!");
@@ -188,25 +190,25 @@ void setup() {
   y_stepper.print_parameters();
 
 
-  // setup mpu6050 
-  mpu.Initialize();
-  Serial.print(mpu.accelgyro.getXAccelOffset());
-  Serial.print('\t');
-  Serial.print(mpu.accelgyro.getYAccelOffset());
-  Serial.print('\t');
-  Serial.print(mpu.accelgyro.getZAccelOffset());
-  Serial.print('\t');
-  Serial.print(mpu.accelgyro.getXGyroOffset());
-  Serial.print('\t');
-  Serial.print(mpu.accelgyro.getYGyroOffset());
-  Serial.print('\t');
-  Serial.println(mpu.accelgyro.getYGyroOffset());
+  // // setup mpu6050 
+  // mpu.Initialize();
+  // Serial.print(mpu.accelgyro.getXAccelOffset());
+  // Serial.print('\t');
+  // Serial.print(mpu.accelgyro.getYAccelOffset());
+  // Serial.print('\t');
+  // Serial.print(mpu.accelgyro.getZAccelOffset());
+  // Serial.print('\t');
+  // Serial.print(mpu.accelgyro.getXGyroOffset());
+  // Serial.print('\t');
+  // Serial.print(mpu.accelgyro.getYGyroOffset());
+  // Serial.print('\t');
+  // Serial.println(mpu.accelgyro.getYGyroOffset());
 
-  // start mpu6050 timer
-  timer = timerBegin(0, 80, true);
-  timerAttachInterrupt(timer, mpu_callback, true);
-  timerAlarmWrite(timer, 10000, true);
-  timerAlarmEnable(timer);
+  // // start mpu6050 timer
+  // timer = timerBegin(0, 80, true);
+  // timerAttachInterrupt(timer, mpu_callback, true);
+  // timerAlarmWrite(timer, 10000, true);
+  // timerAlarmEnable(timer);
 
 
   x_stepper.disable();
